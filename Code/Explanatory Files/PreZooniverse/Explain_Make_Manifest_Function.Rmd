@@ -1,0 +1,121 @@
+---
+title: "Image Pre-processing 2: Create the Manifest"
+output: html_notebook
+---
+## Introduction
+In order to review the images from our game camera exploits, we need to batch load the images and their associated manifest file to the [zooniverse](http://www.zooniverse.org).  Our game cameras are set to take pictures in bursts of 3 shots (3 shots = 1 event) - to help ensure identification of the animal.  Thus, the 3 images should not be treated independently, but really as a single observation or *event*.  
+
+The zooniverse manifest structure requires that the second, third and 4th columns include the file names for the first, second and third images of the set, respectively. (The first column is for a row number).Thus, to simplify our lives, we need some scripts that will take the output produced from our `assignEvents()` function and create a second data frame that assigns each image to the proper column of the proper event. This data frame can then be modified further in R or directly exported as a .csv to the Output -> PreZooniverse -> Manifests folder.
+
+### Before you begin
+This code will import the images_by_event .csv that was produced by the`assignEvents()` function.
+
+### Step 1. Set up the workspace and read in data.
+Set up the workspace
+```{r,results='hide'}
+rm(list = ls())#clears the workspace
+library(tidyverse) 
+library(here)
+output<-here("Output", "PreZooniverse", "Manifests") #determines where to write output data file.
+```
+Now read in the data.  
+```{r}
+myFile<-"images_by_event_2021_R1_C024_SD100_uneven.csv" #name of the images_by_event file you wish to use
+inputs<-here("Output", "PreZooniverse", "ImagesByEvent", myFile)
+DF<-read.csv(inputs)
+```
+### Step 2. Assign images to proper columns
+#### Part A 
+Begin by creating an empty data frame to receive the data
+```{r}
+Runs<-unique(DF$Event) #determines the number of events in the DF
+Manifest<-data.frame(Num = integer(length(Runs)),
+                     Image1 = character(length(Runs)),
+                     Image2 = character(length(Runs)),
+                     Image3 = character(length(Runs)), 
+                     DateTimeOriginal_Img1 = .POSIXct(character(length(Runs))),
+                     CamSD = character(length(Runs)),
+                     CamNum = character(length(Runs)),
+                     SD_Num = character(length(Runs)),
+                     Event = integer(length(Runs)),
+                     stringsAsFactors = FALSE)
+```
+
+#### Part B 
+Loop through DF, read the event number, and assign image names to the proper columns of Manifest
+
+```{r}
+
+#i = 1
+for (i in 1: length(Runs)) {
+       Group <-filter(DF, Event == Runs[i])
+      
+       Group<-Group[order(Group$DateTimeOriginal),]
+        Fill_num<-length(Group$Event)
+       
+        
+        z<-1
+          if (Fill_num == 3){
+            Manifest$Image1[i]<-Group$FileName[z]
+            Manifest$Image2[i]<-Group$FileName[z+1]
+            Manifest$Image3[i]<-Group$FileName[z+2]
+            }
+          else {
+               Manifest$DateTimeOriginal_Img1<-Group$DateTimeOriginal[z]
+               Manifest$Image1[i]<-Group$FileName[z]
+               Manifest$Image2[i]<-Group$FileName[z+1]
+               Manifest$Image3[i]<-"NA"
+          }
+       
+}
+
+Manifest[,1]<-c(1:length(Runs))
+  
+
+```
+Now see if I can populate the DateTimeOriginal_Img1 and Event columns of manifest using information from the first image in each event.
+
+```{r}
+myImages<-Manifest$Image1
+mySubset<-filter(DF, FileName %in% myImages)
+Manifest$DateTimeOriginal_Img1<-mySubset$DateTimeOriginal
+Manifest$Event<-mySubset$Event
+
+```
+And now see if I can use pattern matching in strings to extract CamSD, CamNum, SD_Num
+
+Begin by splitting the strings based on the "_" character
+```{r}
+myStrings<-str_split(mySubset$FileName, "_")
+```
+This generated a list with 5 elements. Each of the 5 elements has 4 subelements, the string pieces.
+
+The first string piece identifies the camera number and the second the SD card. So I need to extract those subelements to put into the manifest.
+
+Let's try it
+
+```{r}
+Manifest$CamNum<-sapply(myStrings, "[[", 1)
+Manifest$SD_Num<-sapply(myStrings, "[[", 2)
+```
+And now paste them together to give the CamSD column
+```{r}
+Manifest$CamSD<- paste0(Manifest$CamNum, "_", Manifest$SD_Num)
+```
+Now I have the complete manifest file!
+
+### Step 3
+Save the resulting manifest
+
+Strip off the "images_by_event_" lead to the file name and replace with "manifest_"
+```{r}
+myFile<-str_remove(myFile, ".csv")
+manifest_file_name<-str_replace(myFile, "images_by_event_", "manifest_") #finds "exif_" in file name, replaces it with "images_by_event.
+```
+
+```{r}
+write.csv(Manifest,  paste0(output, "/",manifest_file_name,"_",Sys.Date(), ".csv"))
+```
+And it worked!
+
+Next compress all of this into a function called makeManifest and edit the PreZooniversePrep.Rmd to call that function.

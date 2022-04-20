@@ -1,0 +1,159 @@
+---
+title: "Image processing: Preliminary assignment of images to events"
+output: html_notebook
+---
+## Introduction
+In order to review the images from our game camera exploits, we need to batch load the images and their associated manifest file to the **[Zooniverse](http://www.zooniverse.org)**. Our game cameras are set to take pictures in bursts of 3 shots (3 shots = 1 event) - to help ensure identification of the animal.  Thus, the 3 images should not be treated independently, but really as a single observation or **event**.  
+
+In this step, we will assign each image to an appropriate event. Then we will check to see if any of the events were assigned more than 3 images. This gives us the opportunity to identify and thus avoid uploading batches of images that aren't telling us anything (e.g. 173 pictures of a beech leaf blowing on a branch, 32 images of a camera trapper setting up the camera).
+
+After preliminary assignment, we will manually go back to the image folder and look at the images present in each event that has > 6 images assigned to it. We will delete any images that are superfluous, and then re-create an exif metadata file on the remaining images.
+
+Once we have the final set of images for upload and the final exif metadata file, we will run the code in PreZooniversePrep.Rmd to make final event assignments and create a manifest for upload to the zooniverse platform.
+
+In this code we will thus:
+
+ 1. Assign each image name to the appropriate event.
+ 
+  - use the metadata from a folder of images to compare the image time stamps and group images into their respective "events."
+  
+  - read the time stamp associated with each image and use it to determine how long after the previous image each image was taken (i.e. determine the time interval between images)
+  
+  - compare the time intervals to a threshold. An event is a set of pictures taken within a time threshold.  We set our cameras to take up to 3 pictures in a bout, and set them with a 1 minute delay before they can take more pictures, so we can use 1 minute as our threshold.
+  
+  - We use our custom function `assignEvents()` to complete step 1.
+  
+2. Use the event information generated in step 1 to create:
+  - a summary dataframe that identifies all those events for which there are > 6 images assigned.
+  
+  - a summary dataframe that identifies the set of cameras and images that need to be checked for possible image removal.
+  
+## Before you begin
+
+In order to run this code, you will need to have the following in place:
+
+* A folder with a set of images (and only images) in it (typically located on the hard drive attached to the iMac in JHS 115 - you may wish to run this project from that machine).
+* A csv file made using *exiftool* that has date/time metadata from all of the photos in the folder (located in the NoCoWild -> Data -> exif_metadata folder on the t:drive)
+
+
+## Set up the workspace for running the project.
+
+```{r, results='hide', echo = F}
+rm(list = ls())
+library(tidyverse)
+library(lubridate)
+library(here) #helps keep directory structure clean when using .Rmd files
+library(rstudioapi) #adds functions for user-supplying file paths, etc.
+myFunctionPath<-here("Code", "Functions") #shortens path for clearer code
+myFunctions<-list.files(myFunctionPath, pattern = "\\.R") #points to files that need to be sourced
+
+sapply(here("Code", "Functions",myFunctions), source) #sources all of the functions in the Functions folder.
+```
+Set up the path to the folder containing the images and the folder containing the metadata file.
+
+```{r}
+rstudioapi::showDialog(
+  title = "Let's give R some file information",
+  message = "Select the folder containing all of the images you plan to upload")
+  
+image_path<-rstudioapi::selectDirectory(
+  path = "/Volumes/NoCoWild",
+  label= "Select folder with images") #asks user to navigate to folder with images
+
+rstudioapi::showDialog(
+  title = "Let's give R some file information",
+  message = "Next select the file containing exif data for those images")
+
+#path to exif file folder on t:drive
+path_to_exif_t<-"/Volumes/classes/Bart_s04/Research_group/NoCoWild/Data/exif_metadata/"
+
+exif_file_path<-rstudioapi::selectFile(
+  path = "/Volumes/classes/Bart_s04/Research_group/NoCoWild/Data/exif_metadata/",
+  filter = "CSV files (*.csv)",
+  label= "Select desired exif file"
+)
+```
+Create a variable that is the list of image file names. 
+
+```{r}
+files<-list.files(image_path) #creates variable called files as vector of filenames
+```
+#### Pull in the data
+Pull in the image metadata.  It was generated and saved as a .csv outside of R using a tool called *exiftool* that is run from the command line. 
+
+```{r}
+Exif <- read.csv(exif_file_path) #obviously, put correct file name here
+
+#may throw an error if your connection to the t:drive drops.
+```
+
+## Step 1 - Assign images to events
+Now assign images to events using assignEvents function (assignEvents.R).  We will need to set the time threshold (default is 1 minute).If you want a different threshold, pass it (an integer of number of seconds) to the assignEvents as the second argument
+
+```{r}
+Exif<-assignEvents(Exif) #no threshold passed, using default of 60 seconds
+```
+
+This completes Step 1.
+
+## Step 2 - Summarize the number of images per event for checking
+
+Test to get a sense of which images might need to be deleted - events with a large number of images in them.
+
+
+
+```{r}
+ToCheck<-summarizeEvents(Exif)
+CheckThese<-str_replace(FileName, "exif_", "to_check")
+write.csv(ToCheck, here("Output", "PreZooniverse", "ToCheck",CheckThese))
+
+################################
+#Eventually may wish to add code that also puts the name of the first image in each event into ExifSummary to make it easier to go back and look at events in the image folders
+##################################
+
+
+```
+
+
+
+
+
+#now filter for all events with > 3 images
+
+MoreThan3<-which(ExifSummary$event_length > 6)
+
+
+EventsToCheck<-ExifSummary[MoreThan3,]
+
+#now grab the events in EventsToCheck from Exif
+ExamineThese<-Exif %>% filter(Event %in% EventsToCheck$Event)
+
+#now write them to an output file
+
+examine_file_name<-str_replace(
+  exif_file_path,
+  paste0(path_to_exif_t,"exif"),
+  "examine")
+
+output<-here("Output","PreZooniverse","ImagesByEvent", "Need_check") #sets path for file output.
+write.csv(ExamineThese, paste0(output, "/",examine_file_name))
+
+```
+Now write EventsToCheck to a file for simplifiying image checking step
+
+Strip off the "exif_" lead to the file name and replace with "need_check_" and then write
+```{r}
+to_check_file_name<-str_replace(
+  exif_file_path,
+  paste0(path_to_exif_t,"exif"),
+  "need_check_events")
+
+output<-here("Output","PreZooniverse","ImagesByEvent", "Need_check") #sets path for file output.
+write.csv(EventsToCheck, paste0(output, "/",to_check_file_name))
+```
+
+Your next step is to go manually to the folder containing your images and use the need_check_events and examine files to determine which files should be deleted prior to moving on to the PreZooniversePrep stage.
+
+## You did it! Nice job!
+
+  
