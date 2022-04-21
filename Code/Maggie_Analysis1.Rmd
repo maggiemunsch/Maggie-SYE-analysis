@@ -1,19 +1,166 @@
 ---
-title: "R Notebook"
+title: "Trying Data Analyses"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
 
+### Overview
+Learning r with data from camera trapping
+
+Step One: Set up workspace
 ```{r}
-plot(cars)
+rm(list = ls()) ## clear work space environment
+library(tidyverse)
+library(here)
+library(lubridate)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+Step Two: Pulling in data
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+```{r}
+df<-read.csv(here("Data", "PostZooniverse", "AssignedSpecies_prebait_incomplete.csv"))
+```
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+ct_data<-read.csv(here("Data", "PostZooniverse", "cameratrapdata2021.csv"))
+```
+
+Let's summarize the data set and look for possible errors 
+
+```{r}
+summary(df)
+```
+
+Let's convert treatment to factor variable and the DTO to date time object (rather than character)
+
+```{r}
+#factor first
+df$Treatment<- as.factor(df$Treatment)
+df$DTO <- mdy_hm(df$DTO)
+
+```
+Notice the treatment column has multiple names for identifying Snapshot protocol so we need to fix. 
+
+Treatment has three levels when should only have two. Need to fix!
+```{r}
+unique(df$Treatment)
+levels(df$Treatment)
+```
+
+Changing all cams with "snap" to "snapshot"
+To begin, find rows where treatment is "snap"
+
+```{r}
+fix<- which(df$Treatment == "Snap")
+df$Treatment[fix]<- "Snapshot"
+df$Treatment<- factor(df$Treatment)
+levels(df$Treatment)
+```
+
+
+
+
+Let's look at how many species were detected
+
+
+```{r}
+num_species<- length(unique(df$choice))
+species<- unique(df$choice)
+species
+```
+Now we look at the number of each species as a function of treatment
+- what data do we need? DF with species, treatment (AIM v snap)and number of events, need to group by and summarize
+
+```{r}
+species_sum<- df %>% group_by(choice, Treatment) %>% summarize(
+  num_obs = length(choice)
+)
+```
+
+Now we plot number of species as a function of treatment
+
+```{r}
+ggplot(species_sum, aes(choice, num_obs, fill = Treatment)) +
+  geom_col(position = "dodge")+
+  labs(y = "Number of observations")+
+  coord_flip()
+```
+First, use `str_sub` to isolate camera num and sd num in df 
+```{r}
+df<-df %>% mutate(
+  cam = str_sub(Img1, 3,4), 
+  SD = str_sub(Img1, 9, 10),
+  cam_SD = paste0(cam,"-", SD)
+)
+```
+
+Now go to ct_data and do similar
+```{r}
+ct_data<-ct_data %>% mutate(
+  cam = Camera_number, 
+  SD = SD_num,
+  cam_SD = paste0(cam, "-", SD)
+)
+```
+
+Now we join the two data frames together 
+```{r}
+mydata<-left_join(df, ct_data, by = "cam_SD")
+```
+
+Now we calculate number of trap nights with newly combined data, have cam and sd on same with start and end date
+
+```{r}
+mydata$start_date<- dmy(mydata$start_date)
+mydata$retrieval_date<- dmy(mydata$retrieval_date)
+```
+
+now calculate trap nights 
+```{r}
+mydata<- mydata %>% mutate(
+  trap_nights = retrieval_date - start_date
+)
+```
+
+Now we need to calculate observations per trap night 
+everything in group by gets a column
+
+```{r}
+species_sum<- mydata %>% group_by(choice, cam_SD, Treatment) %>% summarize(
+  num_obs = length(choice), 
+  trap_nights = max(trap_nights))
+```
+now we balance to make across 100 nights 
+```{r}
+species_sum<- species_sum %>% mutate(
+  obs_night = num_obs / as.numeric(trap_nights), 
+  obs_100 = obs_night * 100
+)
+```
+
+
+average per species between treatements 
+
+
+
+
+
+
+
+
+
+
+Playing around with R 
+```{r}
+summary(species_sum)
+```
+```{r}
+select(df, CamNum)
+unique(df$CamNum)
+```
+ 
+
+
+
 
