@@ -19,7 +19,7 @@ library(lubridate)
 Step Two: Pulling in data
 
 ```{r}
-df<-read.csv(here("Data", "PostZooniverse", "AssignedSpecies_prebait_incomplete.csv"))
+df<-read.csv( here( "Maggie_final_species.csv" ))
 ```
 
 ```{r}
@@ -77,7 +77,6 @@ species_sum<- df %>% group_by(choice, Treatment) %>% summarize(
   num_obs = length(choice)
 )
 ```
-
 Now we plot number of species as a function of treatment
 
 ```{r}
@@ -139,28 +138,64 @@ species_sum<- species_sum %>% mutate(
 )
 ```
 
-
-average per species between treatements 
-
+In order to plot, we need average number of observations per one hundred trap nights per species , not by camera!
 
 
-
-
-
-
-
-
-
-Playing around with R 
 ```{r}
-summary(species_sum)
+obs_sum<-species_sum %>% group_by(choice, Treatment) %>% 
+summarise(
+  avg_obs_100=mean(obs_100, na.rm = T), 
+  sd_obs_100 = sd(obs_100, na.rm = T)
+)
 ```
+
+now we plot obs_sum
+ggplot always, then tell the data set. aes and (X,Y, fill(for bar) color(for dot) = treatment (changes colors))
+dodge- puts next to each other  , rather than stacked 
+
 ```{r}
-select(df, CamNum)
-unique(df$CamNum)
+ggplot(obs_sum, aes(choice, avg_obs_100, fill = Treatment))+
+  geom_col(position = "dodge")+
+  coord_flip()+
+  labs(x= "Species", y= "Avg. observations per 100 nights")
 ```
- 
+
+let's compare using a statistical test, analysis of variance, to compare average number of obs between treatments, ignoring species
+
+overall number of obs
+```{r}
+Treatment <- species_sum %>%group_by(cam_SD, Treatment, trap_nights) %>% summarise(
+  obs_100 = sum(obs_100, na.rm = T)
+)
+```
+Now we run ANOVA 
+model is used for statistical analyses
+```{r}
+my_model <- glm(obs_100~Treatment, data =  Treatment)
+summary(my_model)
+anova(my_model)
+```
 
 
+Now let's see if there is a number of species detected between the two models
+```{r}
+num_species<- species_sum %>% group_by(cam_SD, Treatment) %>% 
+  summarise(num_species = length(choice))
+```
+now run glm to see if  a statisical difference between number of species per treatment 
 
+```{r}
+num_model<-glm(num_species~Treatment, data = num_species)
+summary(num_model)
+anova(num_model)
+```
+
+
+making a plot with treatments on x, number of species on y, and using the average and sd
+
+```{r}
+ggplot(num_species, aes(Treatment, num_species))+
+  geom_col(position = "dodge")
+
+```
 

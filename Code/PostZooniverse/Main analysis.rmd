@@ -1,0 +1,71 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(lubridate)
+library(here)
+```
+
+figure out trap nights
+
+```{r}
+trap_nights<- read.csv(here("Data", "PostZooniverse","cameratrapdata2021.csv"))
+```
+
+make date columns
+chr -> change to dates
+```{r}
+trap_nights$start_date<- dmy(trap_nights$start_date)
+trap_nights$retrieval_date<-dmy(trap_nights$retrieval_date)
+```
+
+check data
+```{r}
+summary(trap_nights)
+```
+retrieval date has typos for April 2021
+need to fix them
+
+```{r}
+fix<- which(trap_nights$retrieval_date == "2021-04-09")
+trap_nights[fix, ] 
+trap_nights$retrieval_date[fix]<- "2022-04-09"
+
+fix<- which(trap_nights$retrieval_date == "2022-11-16")
+trap_nights[fix, ] 
+trap_nights$retrieval_date[fix]<- "2021-11-16"
+
+
+```
+
+calculate trap nights
+```{r}
+trap_nights$cam_nights<-as.integer(trap_nights$retrieval_date-trap_nights$start_date)
+summary(trap_nights$cam_nights)
+```
+
+```{r}
+check<- which(is.na(trap_nights$cam_nights))
+trap_nights[check, ]
+trap_nights<- trap_nights[1:24, ]
+```
+
+check treatment and phase
+```{r}
+unique(trap_nights$phase)
+unique(trap_nights$protocol)
+```
+summarize trap nights by treatment and protocol
+```{r}
+nights_tp<- trap_nights %>% group_by(protocol, phase) %>% summarize(
+  total_nights = sum(cam_nights, na.rm = T), 
+  avg_nights = mean(cam_nights, na.rm = T), 
+  sd_nights = sd(cam_nights, na.rm = T)
+)
+```
+
+use same approach to look at is there an animal - for yes or no animal
+
