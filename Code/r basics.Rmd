@@ -13,6 +13,10 @@ library(here)
 ```{r}
 species<- read.csv(here( "Data", "maggie_clean_species.csv"))
 ```
+bringing in is there an animal
+```{r}
+is_there<- read.csv(here("Data", "Maggie_clean_is_there_species.csv"))
+```
 
 
 is there a difference in number of species detected between phase and treatment
@@ -53,3 +57,84 @@ ggplot(avg_species, aes(Treatment, avg_species, group =Phase, color = Phase)) +
   geom_point()+
   geom_errorbar(ymin = avg_species- sd_species, ymax = avg_species + sd_species)
 ```
+
+
+
+
+
+
+
+Having trouble, not sure how to correct
+
+
+trying to sort out data
+```{r}
+flse_trig<- length(unique(is_there$value))
+```
+
+
+making a table to compare aim and snap and is there
+```{r}
+#compare multiple columns 
+
+df = is_there
+combo_tabo<-table(df$Phase, df$Treatment, df$value)
+phase<- as.factor(df$Phase)
+treat<- as.factor(df$Treatment)
+value<- as.factor(df$value)
+combo_tabo
+```
+
+
+breaking apart value colomn
+```{r}
+even separate(as.factor(value))
+
+#moving on to more important
+```
+
+
+
+```{r}
+falsify<- is_there %>% group_by(Phase, Treatment) %>% summarise(
+  dont_see = sum(unique(value))
+)
+```
+
+
+trying to run stats test on above table
+
+```{r}
+false_digs<- aov(as.factor(is_there)~ Phase + Treatment + value + Phase*value+ Phase*Treatment + Treatment*value, data = is_there)
+summary(false_digs)
+anova(false_digs)
+```
+
+
+finding if there is an animal or not
+```{r}
+there_compare<-is_there %>%  group_by(Phase, Treatment) %>%
+  summarise(
+    length(unique(is_there$value))
+```
+plotting if there is an animal or not 
+
+```{r}
+plot()
+```
+
+changing non integers to integers.
+
+```{r}
+is_there$Treatment<- as.factor(is_there$Treatment)
+
+```
+
+
+
+
+starting a new
+```{r}
+summary(avg_species)
+```
+

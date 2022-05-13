@@ -66,6 +66,36 @@ nights_tp<- trap_nights %>% group_by(protocol, phase) %>% summarize(
   sd_nights = sd(cam_nights, na.rm = T)
 )
 ```
+HELP
+```{r}
+aov(trap_nights~ protocol + phase + phase*protocol, data = trap_nights)
+summary(nights_tp)
+anova(nights_tp)
+```
 
 use same approach to look at is there an animal - for yes or no animal
+
+
+
+bringing in more data 
+
+```{r}
+cam_data<- read.csv(here("Data", "maggie_clean_cam_data.csv"))
+is_there<- read.csv(here("Data", "Maggie_clean_is_there_species.csv"))
+species<- read.csv(here("Data", "maggie_clean_species.csv"))
+```
+
+
+making a graph of false triggers over time
+
+```{r}
+ggplot(is_there, aes(DTO, event , group = value, color = value
+  geom_point(position = "dodge")+
+  coord_flip()+
+  labs(x= "Time", y= "Number of Event")
+```
+
+
+
+
 
