@@ -66,7 +66,7 @@ nights_tp<- trap_nights %>% group_by(protocol, phase) %>% summarize(
   sd_nights = sd(cam_nights, na.rm = T)
 )
 ```
-HELP
+Help- can't run statistical test
 ```{r}
 aov(trap_nights~ protocol + phase + phase*protocol, data = trap_nights)
 summary(nights_tp)
@@ -87,6 +87,8 @@ species<- read.csv(here("Data", "maggie_clean_species.csv"))
 
 
 making a graph of false triggers over time
+trying to plot points of events over time and compare when 
+oh but- had wanted to compare between snap and aim and see if one resulted in more false triggers
 
 ```{r}
 ggplot(is_there, aes(DTO, event , group = value, color = value

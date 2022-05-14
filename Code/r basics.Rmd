@@ -85,7 +85,7 @@ value<- as.factor(df$value)
 combo_tabo
 ```
 
-
+how do I split apart yes vs is there an animal?
 breaking apart value colomn
 ```{r}
 even separate(as.factor(value))
@@ -94,7 +94,7 @@ even separate(as.factor(value))
 ```
 
 
-
+want to see how many false for AIM, problem is because of character I think and I am not sure how to go about that for species either. 
 ```{r}
 falsify<- is_there %>% group_by(Phase, Treatment) %>% summarise(
   dont_see = sum(unique(value))
@@ -133,7 +133,7 @@ is_there$Treatment<- as.factor(is_there$Treatment)
 
 
 
-starting a new
+starting a new- sorry I haven't gotten further, a lot of trial and error 
 ```{r}
 summary(avg_species)
 ```
